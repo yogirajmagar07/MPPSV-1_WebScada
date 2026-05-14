@@ -19,7 +19,7 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 # =========================
 TABLES_CONN = os.environ.get("TABLES_CONNECTION_STRING")
 TABLE_NAME = os.environ.get("TABLE_NAME", "DeviceData")
-TABLE_NAME_2 = os.environ.get("TABLE_NAME_2", "ScadaData")
+TABLE_NAME_2 = os.environ.get("TABLE_NAME_2", "MPPSV1")
 
 service = TableServiceClient.from_connection_string(TABLES_CONN)
 table_client = service.get_table_client(TABLE_NAME)
