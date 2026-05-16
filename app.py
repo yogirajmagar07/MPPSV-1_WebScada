@@ -183,7 +183,7 @@ def api_readings():
 
     from_time = request.args.get("fromTime")
     to_time = request.args.get("toTime")
-    deviceid = "susanmpa"
+    deviceid = "susanmppsv"
 
     if not from_time or not to_time:
         return jsonify({"error": "fromTime and toTime required"}), 400
