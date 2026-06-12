@@ -36,6 +36,31 @@ except:
 # =========================
 latest_cache = {}
 
+#==========================
+# Authentication
+#==========================
+API_KEY = os.environ.get("API_KEY")
+
+def api_key_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+
+        client_key = request.headers.get("X-API-Key")
+
+        if not client_key:
+            return jsonify({
+                "error": "API Key missing"
+            }), 401
+
+        if client_key != API_KEY:
+            return jsonify({
+                "error": "Invalid API Key"
+            }), 401
+
+        return f(*args, **kwargs)
+
+    return decorated
+
 # Login decorator
 def login_required(f):
     @wraps(f)
@@ -179,6 +204,7 @@ def latest():
 # Fuel Consumption API
 # =========================
 @app.route("/API")
+@api_key_required
 def api_readings():
 
     from_time = request.args.get("fromTime")
@@ -189,8 +215,8 @@ def api_readings():
         return jsonify({"error": "fromTime and toTime required"}), 400
 
     try:
-        start_dt = datetime.strptime(from_time, "%Y-%m-%d %H:%M:%S")
-        end_dt = datetime.strptime(to_time, "%Y-%m-%d %H:%M:%S")
+        start_dt = datetime.strptime(from_time, "%Y-%m-%dT%H:%M:%SZ")
+        end_dt = datetime.strptime(to_time, "%Y-%m-%dT%H:%M:%SZ")
     except:
         return jsonify({"error": "Invalid datetime format"}), 400
 
