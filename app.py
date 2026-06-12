@@ -257,7 +257,7 @@ def api_readings():
                     continue
 
                 try:
-                    ts_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+                    ts_dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
                 except:
                     continue
 
