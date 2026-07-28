@@ -330,6 +330,137 @@ def latest():
 
 #     return Response(json.dumps({"readings": readings}, indent=4), mimetype="application/json")
 
+# @app.route("/API")
+# @api_key_required
+# def api_readings():
+
+#     from_time = request.args.get("fromTime")
+#     to_time = request.args.get("toTime")
+#     deviceid = "susanmppsv"
+
+#     if not from_time or not to_time:
+#         return jsonify({"error": "fromTime and toTime required"}), 400
+
+#     try:
+#         start_dt = datetime.strptime(from_time, "%Y-%m-%dT%H:%M:%SZ")
+#         end_dt = datetime.strptime(to_time, "%Y-%m-%dT%H:%M:%SZ")
+#     except Exception:
+#         return jsonify({"error": "Invalid datetime format. Use YYYY-MM-DDTHH:MM:SSZ"}), 400
+
+#     # Convert API ISO time to Azure stored TimestampIST format
+#     azure_from_time = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+#     azure_to_time = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+#     def get_float(row, key):
+#         return float(row.get(key, 0) or 0)
+
+#     def parse_azure_time(ts):
+#         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+#             try:
+#                 return datetime.strptime(ts, fmt)
+#             except Exception:
+#                 pass
+#         return None
+
+#     readings = []
+
+#     try:
+#         query = (
+#             f"PartitionKey eq '{deviceid}' "
+#             f"and TimestampIST ge '{azure_from_time}' "
+#             f"and TimestampIST le '{azure_to_time}'"
+#         )
+
+#         entities = list(table_client_2.query_entities(query))
+
+#         print("API Records Found =", len(entities))
+#         if entities:
+#             print("Sample TimestampIST =", entities[0].get("TimestampIST"))
+#             print("Sample Keys =", list(entities[0].keys()))
+
+#         current_start = start_dt
+
+#         while current_start < end_dt:
+
+#             current_end = min(current_start + timedelta(hours=1), end_dt)
+
+#             total_ft1 = total_ft2 = 0
+#             total_ft3 = total_ft4 = 0
+#             total_ft5 = total_ft6 = 0
+#             total_ft7 = total_ft8 = 0
+
+#             for e in entities:
+
+#                 ts = e.get("TimestampIST")
+#                 if not ts:
+#                     continue
+
+#                 ts_dt = parse_azure_time(ts)
+#                 if not ts_dt:
+#                     continue
+
+#                 if current_start <= ts_dt < current_end:
+
+#                     total_ft1 += get_float(e, "FT1MassFlow")
+#                     total_ft2 += get_float(e, "FT2MassFlow")
+#                     total_ft3 += get_float(e, "FT3MassFlow")
+#                     total_ft4 += get_float(e, "FT4MassFlow")
+#                     total_ft5 += get_float(e, "FT5MassFlow")
+#                     total_ft6 += get_float(e, "FT6MassFlow")
+#                     total_ft7 += get_float(e, "FT7MassFlow")
+#                     total_ft8 += get_float(e, "FT8MassFlow")
+
+#             main_engine_1_total = total_ft1 - total_ft2
+#             main_engine_2_total = total_ft3 - total_ft4
+
+#             generator_1_total = total_ft5 - total_ft6
+#             generator_2_total = total_ft7 - total_ft8
+
+#             total_main_engines = main_engine_1_total + main_engine_2_total
+#             total_generators = generator_1_total + generator_2_total
+
+#             readings.append({
+#                 "measurementStartTime": current_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+#                 "measurementEndTime": (current_end - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+#                 "kind": "VESSEL",
+#                 "mmsi": "419566000",
+#                 "imo": "9333515",
+#                 "consumption": {
+#                     "mainEnginesTotal": round(total_main_engines, 8),
+#                     "generatorsTotal": round(total_generators, 8),
+#                     "mainEngines": [
+#                         {
+#                             "name": "Main Engine 1",
+#                             "value": round(main_engine_1_total, 8)
+#                         },
+#                         {
+#                             "name": "Main Engine 2",
+#                             "value": round(main_engine_2_total, 8)
+#                         }
+#                     ],
+#                     "generators": [
+#                         {
+#                             "name": "Generator 1",
+#                             "value": round(generator_1_total, 8)
+#                         },
+#                         {
+#                             "name": "Generator 2",
+#                             "value": round(generator_2_total, 8)
+#                         }
+#                     ]
+#                 }
+#             })
+
+#             current_start = current_end
+
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
+#     return Response(
+#         json.dumps({"readings": readings}, indent=4),
+#         mimetype="application/json"
+#     )
+
 @app.route("/API")
 @api_key_required
 def api_readings():
@@ -345,21 +476,39 @@ def api_readings():
         start_dt = datetime.strptime(from_time, "%Y-%m-%dT%H:%M:%SZ")
         end_dt = datetime.strptime(to_time, "%Y-%m-%dT%H:%M:%SZ")
     except Exception:
-        return jsonify({"error": "Invalid datetime format. Use YYYY-MM-DDTHH:MM:SSZ"}), 400
+        return jsonify({
+            "error": "Invalid datetime format. Use YYYY-MM-DDTHH:MM:SSZ"
+        }), 400
+
+    if start_dt >= end_dt:
+        return jsonify({
+            "error": "fromTime must be earlier than toTime"
+        }), 400
 
     # Convert API ISO time to Azure stored TimestampIST format
     azure_from_time = start_dt.strftime("%Y-%m-%d %H:%M:%S")
     azure_to_time = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
     def get_float(row, key):
-        return float(row.get(key, 0) or 0)
+        try:
+            return float(row.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def parse_azure_time(ts):
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+        if isinstance(ts, datetime):
+            return ts.replace(tzinfo=None)
+
+        for fmt in (
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S.%f",
+            "%Y-%m-%dT%H:%M:%SZ"
+        ):
             try:
-                return datetime.strptime(ts, fmt)
-            except Exception:
+                return datetime.strptime(str(ts), fmt)
+            except (TypeError, ValueError):
                 pass
+
         return None
 
     readings = []
@@ -374,82 +523,151 @@ def api_readings():
         entities = list(table_client_2.query_entities(query))
 
         print("API Records Found =", len(entities))
+
         if entities:
-            print("Sample TimestampIST =", entities[0].get("TimestampIST"))
+            print(
+                "Sample TimestampIST =",
+                entities[0].get("TimestampIST")
+            )
             print("Sample Keys =", list(entities[0].keys()))
 
         current_start = start_dt
 
         while current_start < end_dt:
 
-            current_end = min(current_start + timedelta(hours=1), end_dt)
+            current_end = min(
+                current_start + timedelta(hours=1),
+                end_dt
+            )
 
-            total_ft1 = total_ft2 = 0
-            total_ft3 = total_ft4 = 0
-            total_ft5 = total_ft6 = 0
-            total_ft7 = total_ft8 = 0
+            total_ft1 = total_ft2 = 0.0
+            total_ft3 = total_ft4 = 0.0
+            total_ft5 = total_ft6 = 0.0
+            total_ft7 = total_ft8 = 0.0
 
-            for e in entities:
+            record_count = 0
 
-                ts = e.get("TimestampIST")
+            for entity in entities:
+
+                ts = entity.get("TimestampIST")
+
                 if not ts:
                     continue
 
                 ts_dt = parse_azure_time(ts)
+
                 if not ts_dt:
                     continue
 
                 if current_start <= ts_dt < current_end:
 
-                    total_ft1 += get_float(e, "FT1MassFlow")
-                    total_ft2 += get_float(e, "FT2MassFlow")
-                    total_ft3 += get_float(e, "FT3MassFlow")
-                    total_ft4 += get_float(e, "FT4MassFlow")
-                    total_ft5 += get_float(e, "FT5MassFlow")
-                    total_ft6 += get_float(e, "FT6MassFlow")
-                    total_ft7 += get_float(e, "FT7MassFlow")
-                    total_ft8 += get_float(e, "FT8MassFlow")
+                    total_ft1 += get_float(entity, "FT1MassFlow")
+                    total_ft2 += get_float(entity, "FT2MassFlow")
 
-            main_engine_1_total = total_ft1 - total_ft2
-            main_engine_2_total = total_ft3 - total_ft4
+                    total_ft3 += get_float(entity, "FT3MassFlow")
+                    total_ft4 += get_float(entity, "FT4MassFlow")
 
-            generator_1_total = total_ft5 - total_ft6
-            generator_2_total = total_ft7 - total_ft8
+                    total_ft5 += get_float(entity, "FT5MassFlow")
+                    total_ft6 += get_float(entity, "FT6MassFlow")
 
-            total_main_engines = main_engine_1_total + main_engine_2_total
-            total_generators = generator_1_total + generator_2_total
+                    total_ft7 += get_float(entity, "FT7MassFlow")
+                    total_ft8 += get_float(entity, "FT8MassFlow")
+
+                    record_count += 1
+
+            # Calculate average values for the interval
+            if record_count > 0:
+                avg_ft1 = total_ft1 / record_count
+                avg_ft2 = total_ft2 / record_count
+
+                avg_ft3 = total_ft3 / record_count
+                avg_ft4 = total_ft4 / record_count
+
+                avg_ft5 = total_ft5 / record_count
+                avg_ft6 = total_ft6 / record_count
+
+                avg_ft7 = total_ft7 / record_count
+                avg_ft8 = total_ft8 / record_count
+            else:
+                avg_ft1 = avg_ft2 = 0.0
+                avg_ft3 = avg_ft4 = 0.0
+                avg_ft5 = avg_ft6 = 0.0
+                avg_ft7 = avg_ft8 = 0.0
+
+            # Consumption based on average mass-flow values
+            main_engine_1_total = avg_ft1 - avg_ft2
+            main_engine_2_total = avg_ft3 - avg_ft4
+
+            generator_1_total = avg_ft5 - avg_ft6
+            generator_2_total = avg_ft7 - avg_ft8
+
+            total_main_engines = (
+                main_engine_1_total +
+                main_engine_2_total
+            )
+
+            total_generators = (
+                generator_1_total +
+                generator_2_total
+            )
 
             readings.append({
-                "measurementStartTime": current_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "measurementEndTime": (current_end - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "measurementStartTime": current_start.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "measurementEndTime": (
+                    current_end - timedelta(seconds=1)
+                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+
                 "kind": "VESSEL",
                 "mmsi": "419566000",
                 "imo": "9333515",
+
+                # Useful for checking missing minute records
+                "recordCount": record_count,
+
                 "consumption": {
-                    "mainEnginesTotal": round(total_main_engines, 8),
-                    "generatorsTotal": round(total_generators, 8),
+                    "mainEnginesTotal": round(
+                        total_main_engines, 8
+                    ),
+                    "generatorsTotal": round(
+                        total_generators, 8
+                    ),
                     "mainEngines": [
                         {
                             "name": "Main Engine 1",
-                            "value": round(main_engine_1_total, 8)
+                            "value": round(
+                                main_engine_1_total, 8
+                            )
                         },
                         {
                             "name": "Main Engine 2",
-                            "value": round(main_engine_2_total, 8)
+                            "value": round(
+                                main_engine_2_total, 8
+                            )
                         }
                     ],
                     "generators": [
                         {
                             "name": "Generator 1",
-                            "value": round(generator_1_total, 8)
+                            "value": round(
+                                generator_1_total, 8
+                            )
                         },
                         {
                             "name": "Generator 2",
-                            "value": round(generator_2_total, 8)
+                            "value": round(
+                                generator_2_total, 8
+                            )
                         }
                     ]
                 }
             })
+
+            print(
+                f"Interval {current_start} to {current_end}: "
+                f"{record_count} records"
+            )
 
             current_start = current_end
 
